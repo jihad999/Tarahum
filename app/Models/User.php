@@ -44,8 +44,27 @@ class User extends Authenticatable implements MustVerifyEmail
     public function role(){
         return $this->belongsTo(Role::class, 'role_id', 'id');
     }
+    public function orphan(){
+        return $this->belongsTo(orphan::class, 'orphan_id', 'id');
+    }
 
     public function friends(){
         return $this->belongsToMany('App\Models\User', 'friends' ,'user_id' , 'sponser_id');
+    }
+
+    public function sponser_orphans(){
+        return $this->belongsToMany('App\Models\Orphan', 'orphan_sponsers' ,'sponser_id' , 'orphan_id');
+    }
+
+    public function payment(){
+        return $this->hasOne(Payment::class, 'sponser_id', 'id');
+    }
+    
+    public function posts(){
+        return $this->hasMany(Post::class, 'user_id', 'id');
+    }
+
+    public function notification_settings(){
+        return $this->hasMany(NotificationSetting::class, 'role_id', 'role_id');
     }
 }

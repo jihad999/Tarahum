@@ -14,12 +14,15 @@ class Orphan extends Model
         return $this->belongsTo(User::class, 'guardian_id', 'id');
     }
 
-    public function sponsers(){
-        return $this->belongsToMany('App\Models\User', 'orphan_sponsers' ,'orphan_id' , 'sponser_id');
+    public function sponser(){
+        return $this->belongsTo(User::class, 'sponser_id', 'id');
     }
+    
+    // public function sponsers(){
+    //     return $this->belongsToMany('App\Models\User', 'orphan_sponsers' ,'orphan_id' , 'sponser_id');
+    // }
 
-    public function updates(){
-        // dd('aaa');
+    public function posts(){
         return $this->hasMany(Post::class, 'orphan_id', 'id');
     }
 
