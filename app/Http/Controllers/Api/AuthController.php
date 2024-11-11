@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Friend;
+use App\Models\Notification;
 use App\Models\Orphan;
 use App\Models\OrphanSponser;
 use App\Models\Post;
 use App\Models\User;
+use App\Models\UserNotificationSetting;
 use App\Models\VerificationCode;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -81,6 +83,10 @@ class AuthController extends Controller
                 'role_id' => 3,
                 'status' => 'Assigned',
             ]);
+
+            $this->add_user_notification_settings($user->id);
+
+            $this->add_notification($user->id , 1);
 
             return response()->json([
                 'status' => 201,
@@ -207,5 +213,49 @@ class AuthController extends Controller
                 "data" => null,
             ]);
         }
+    }
+
+    private function add_user_notification_settings($user_id) {
+        $user = User::where('id',$user_id)->with(['notification_settings'])->first();
+        
+        if($user){
+            if(count($user->notification_settings)>0 && $user->notification_settings){
+                foreach ($user->notification_settings as $notification_setting) {
+                    UserNotificationSetting::updateOrCreate([
+                        'user_id' => $user->id,
+                        'notification_setting_id' => $notification_setting->id,
+                    ],[
+                        'user_id' => $user->id,
+                        'notification_setting_id' => $notification_setting->id,
+                        'status' => 0,
+                    ]);
+                }
+            }
+        }
+        // dd($user);
+    }
+
+    private function add_notification($user_id,$notification_setting_id) {
+        $notification = Notification::create([
+            'user_id' => $user_id,
+            'notification_setting_id' => $notification_setting_id,
+        ]);
+
+        if($notification){
+            return [
+                'status' => 200,
+                'msg' => 'Add Notification Successfully',
+                'data' => [
+                    'user_notification' => $user_notification->notification_settings??null,
+                ],
+            ];
+        }
+
+        return [
+            'status' => 404,
+            'msg' => 'Add Notification Faild',
+            'data' => null,
+        ];
+        
     }
 }

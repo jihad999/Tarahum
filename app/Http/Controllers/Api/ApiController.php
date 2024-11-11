@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\AddPaymentMonthly;
 use App\Models\Friend;
+use App\Models\Notification;
+use App\Models\NotificationSetting;
 use App\Models\Orphan;
 use App\Models\OrphanSponser;
 use App\Models\Payment;
@@ -13,9 +16,11 @@ use App\Models\Plan;
 use App\Models\Post;
 use App\Models\Role;
 use App\Models\User;
+use App\Models\UserNotificationSetting;
 use App\Models\VerificationCode;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -35,6 +40,8 @@ class ApiController extends Controller
 
         $user = User::whereId($request->user_id)->first();
         if($user){
+            $notifications = $this->get_notifications($user->id);
+
             if($user->role_id ==1 ){
                 $sponsers = User::where('role_id',3)->where('orphan_id',null)->get();
                 return response()->json([
@@ -43,6 +50,7 @@ class ApiController extends Controller
                     "data" => [
                         'user' => $user,
                         'sponsers' => $sponsers,
+                        'notifications' => $notifications??null,
                     ],
                 ]);
 
@@ -53,6 +61,7 @@ class ApiController extends Controller
                     "msg" => "Home",
                     "data" => [
                         'user' => $user,
+                        'notifications' => $notifications??null,
                     ],
                 ]);
             }elseif($user->role_id ==3){
@@ -62,6 +71,7 @@ class ApiController extends Controller
                     "msg" => "Home",
                     "data" => [
                         'user' => $user,
+                        'notifications' => $notifications??null,
                     ],
                 ]);
             }
@@ -213,7 +223,7 @@ class ApiController extends Controller
         $orphan = Orphan::whereId($request->orphan_id)->first();
         
         if($orphan){
-            $orphan = Orphan::whereId($request->orphan_id)->whereNull('sponser_id')->first();
+            $orphan = Orphan::whereId($request->orphan_id)->whereNull('sponser_id')->with('guardian')->first();
             
             if(!$orphan){
                 return response()->json([
@@ -242,16 +252,18 @@ class ApiController extends Controller
             }
             
             if($sponser){
-                $orphan->update([
-                    'status' => 'Sponserd',
-                    'sponser_id' => $request->sponser_id??null,
-                ]);
-                
                 $sponser->update([
                     'status' => "Assigned",
                     'orphan_id' => $request->orphan_id??null,
                 ]);
+                $this->add_notification($sponser->id , 7);
 
+                $orphan->update([
+                    'status' => 'Sponserd',
+                    'sponser_id' => $request->sponser_id??null,
+                ]);
+                $this->add_notification($orphan->guardian->id , 5);
+                
                 return response()->json([
                     'status' => 200,
                     "msg" => "Assigned Success",
@@ -486,6 +498,14 @@ class ApiController extends Controller
                 'status' => $request->role_id == 3 ? "Not Assigned" : null,
             ]);
 
+            $this->add_user_notification_settings($user->id);
+
+            if($user->role_id == 3){
+                $this->add_notification($user->id , 1);
+            }elseif ($user->role_id == 2) {
+                $this->add_notification($user->id , 4);
+            }
+
             Mail::send('emails.add_user', ['password' => $password], function ($message) use ($user) {
                 $message->to($user->email);
                 $message->subject('Email Verification Code');
@@ -526,23 +546,87 @@ class ApiController extends Controller
         ]);
     }
 
-    function get_notifications(Request $request) {
+    // function get_notifications(Request $request) {
+    //     $validator = Validator::make($request->all(), [
+    //         'user_id' => 'required|numeric|exists:users,id',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json($validator->errors(), 422);
+    //     }
+
+    //     $user = User::whereId($request->user_id)->with(['user_notifications.notification_settings'])->first();
+    //     // dd($user);
+    //     if($user){            
+    //         if($user->user_notifications && count($user->user_notifications)>0){
+    //             return [
+    //                 'status' => 200,
+    //                 'msg' => 'get user notifications',
+    //                 'data' => [
+    //                     'user' => $user??null,
+    //                     'notifications' => $user->user_notifications??null,
+    //                 ],
+    //             ];
+    //         }
+
+    //         return [
+    //             'status' => 404,
+    //             'msg' => 'User not have a notifications',
+    //             'data' => [
+    //                 'user' => $user??null,
+    //             ],
+    //         ];
+    //     }
+    //     return [
+    //         'status' => 404,
+    //         'msg' => 'User not exist',
+    //         'data' => null,
+    //     ];
+    // }
+
+    function update_user_notifications(Request $request) {
         $validator = Validator::make($request->all(), [
             'user_id' => 'required|numeric|exists:users,id',
+            'notification_setting_id' => 'required|numeric|exists:notification_settings,id',
+            'status' => 'required|numeric',
         ]);
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
         }
 
-        $user = User::whereId($request->user_id)->with('notification_settings')->first();
+        $user = User::whereId($request->user_id)->with(['user_notifications'])->first();
 
-        if($user){
+        if($user){            
+            if($user->user_notifications && count($user->user_notifications)>0){
+                $notification_setting = NotificationSetting::where('id',$request->notification_setting_id)->where('role_id',$user->role_id)->first();
+
+                if($notification_setting){
+                    $user->user_notifications->where('notification_setting_id',$request->notification_setting_id)->first()->update(['status'=>($request->status) ? 1 : 0]);
+                    return [
+                        'status' => 200,
+                        'msg' => 'update notification successfully',
+                        'data' => [
+                            'user' => $user??null,
+                            'notifications' => $user->user_notifications??null,
+                        ],
+                    ];
+                }
+                return [
+                    'status' => 404,
+                    'msg' => 'notification setting id not compataple with user',
+                    'data' => [
+                        'user' => $user??null,
+                        'notification_setting_id' => $request->notification_setting_id??null,
+                    ],
+                ];
+            }
+
             return [
                 'status' => 404,
-                'msg' => 'User not exist',
+                'msg' => 'User not have a notifications',
                 'data' => [
-                    'notifications' => $user->notification_settings??null,
+                    'user' => $user??null,
                 ],
             ];
         }
@@ -558,7 +642,6 @@ class ApiController extends Controller
         $validator = Validator::make($request->all(), [
             'user_id' => 'required|numeric|exists:users,id',
             'plan_id' => 'required|numeric|exists:plans,id',
-            // 'price' => 'required|numeric|exists:plans,price',
             'billing_ship_address' => 'required|numeric',
             'card_type' => 'required|string|min:3|max:191',
             'card_name' => 'required|string|min:3|max:191',
@@ -586,12 +669,16 @@ class ApiController extends Controller
                 'cvv' => $request->cvv,
                 'billing_ship_address' => $request->billing_ship_address ? 1 : 0,
             ]);
+
             $payment_info = PaymentDetail::updateOrCreate([
                 'payment_id' => $payment->id,
             ],[
                 'payment_id' => $payment->id,
                 'price' => $plan->price,
             ]);
+
+            AddPaymentMonthly::dispatch($payment->id);
+
             return response()->json([
                 'status' => 200,
                 "msg" => "Add sponser payment",
@@ -623,9 +710,16 @@ class ApiController extends Controller
 
         if($sponser){
             if($sponser->payment){
-                PaymentDetail::where('payment_id',$sponser->payment->id)->orderByDesc('id')->first()->update([
+                $payment_detail = PaymentDetail::where('payment_id',$sponser->payment->id)->orderByDesc('id')->first()->update([
                     'status' => $request->status,
                 ]);
+
+                if($payment_detail->status == "Paid"){
+                    $this->add_notification($sponser->id , 2);
+                    $this->add_notification($sponser->id , 8);
+                }elseif($payment_detail->status == "Declined"){
+                    $this->add_notification($sponser->id , 3);
+                }
         
                 return response()->json([
                     'status' => 200,
@@ -707,6 +801,61 @@ class ApiController extends Controller
         ]);
     }
 
+    function cancel_plan(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|numeric|exists:users,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $sponser = User::whereId($request->user_id)->where('role_id',3)->with(['orphan','payment.plan','payment.payment_info'])->first();
+
+        if($sponser){
+            if($sponser->orphan){
+                $sponser->orphan->update([
+                    'sponser_id' => null,
+                    'status' => 'Not Sponserd',
+                ]);
+            }
+            $sponser->update([
+                'orphan_id' => null,
+                'status' => 'Not Assigned',
+            ]);
+
+            if($sponser->payment){
+                Payment::where('sponser_id',$sponser->id)->delete();
+                if(count($sponser->payment->payment_info)>0 && $sponser->payment->payment_info){
+                    foreach ($sponser->payment->payment_info as $payment_info) {
+                        PaymentDetail::where('payment_id',$payment_info->id)->delete();
+                    }
+                }
+                return response()->json([
+                    'status' => 200,
+                    "msg" => "Sponser cancel plan successfully",
+                    "data" => [
+                        'sponser' => $sponser,
+                    ],
+                ]);
+            }
+            
+            return response()->json([
+                'status' => 200,
+                "msg" => "Not have any payment",
+                "data" => [
+                    'sponser' => $sponser,
+                ],
+            ]);
+        }
+
+        return response()->json([
+            'status' => 404,
+            "msg" => "Sponser is not Exist",
+            "data" => null,
+        ]);
+    }
+
     // Posts
     function add_post(Request $request) {
         $validator = Validator::make($request->all(), [
@@ -731,6 +880,11 @@ class ApiController extends Controller
 
         if($post){
             $user = User::whereId($request->user_id)->first();
+
+            if(($user->role_id == 1) && is_null($request->orphan_id)){
+                $this->add_notification($user->id , 6);
+            }
+
             $orphan = User::whereId($request->orphan_id)->first();
 
             if($user){
@@ -794,8 +948,8 @@ class ApiController extends Controller
         $validator = Validator::make($request->all(), [
             'post_id' => 'required|numeric|exists:posts,id',
             'orphan_id' => 'nullable|numeric|exists:orphans,id',
-            'description' => 'required|string|min:3|max:500',
-            'image' => 'required|min:3|max:191',
+            'description' => 'nullable|string|min:3|max:500',
+            'image' => 'nullable|min:3|max:191',
             // |mimes:png,jpg,jpeg,svg
             'title' => 'nullable|min:3|max:191|string',
         ]);
@@ -805,9 +959,9 @@ class ApiController extends Controller
 
         $post = Post::whereId($request->post_id)->with('user')->first();
         $post->update([
-            'description' => $request->description??null,
-            'image' => $request->image??null,
-            'title' => $request->title??null,
+            'description' => $request->description??$post->description,
+            'image' => $request->image??$post->image,
+            'title' => $request->title??$post->title,
         ]);
 
         if($post){
@@ -840,13 +994,24 @@ class ApiController extends Controller
         }
 
         $user = User::where('id',$request->user_id)->with('posts')->first();
+        
         if($user){
+            if($user->posts && count($user->posts)>0){
+                $user->posts = $user->posts->where('orphan_id',null);
+                return response()->json([
+                    'status' => 200,
+                    "msg" => "Get Posts",
+                    "data" => [
+                        'user' => $user??null,
+                        'posts' => $user->posts??null,
+                    ],
+                ]);
+            }
             return response()->json([
                 'status' => 200,
-                "msg" => "Get Posts",
+                "msg" => "Not have posts",
                 "data" => [
                     'user' => $user??null,
-                    'posts' => $user->posts??null,
                 ],
             ]);
         }
@@ -872,6 +1037,7 @@ class ApiController extends Controller
                 ],
             ]);
         }
+        
         return response()->json([
             'status' => 404,
             "msg" => "The User doesn't have any post",
@@ -930,6 +1096,7 @@ class ApiController extends Controller
             'title' => 'required|string|min:3|max:191',
             'description' => 'required|string|min:3|max:500',
             'price' => 'required|numeric',
+            'duration_day' => 'required|numeric',
         ]);
 
         if ($validator->fails()) {
@@ -940,6 +1107,7 @@ class ApiController extends Controller
             'title' => $request->title??null,
             'description' => $request->description??null,
             'price' => $request->price??null,
+            'duration_day' => $request->duration_day??null,
         ]);
 
         if($plan){
@@ -961,22 +1129,26 @@ class ApiController extends Controller
     function update_plan(Request $request) {
         $validator = Validator::make($request->all(), [
             'plan_id' => 'required|numeric|exists:plans,id',
-            'title' => 'required|string|min:3|max:191',
-            'description' => 'required|string|min:3|max:500',
-            'price' => 'required|numeric',
+            'title' => 'nullable|string|min:3|max:191',
+            'description' => 'nullable|string|min:3|max:500',
+            'price' => 'nullable|numeric',
+            'duration_day' => 'nullable|numeric',
         ]);
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
         }
 
-        Plan::whereId($request->plan_id)->update([
-            'title' => $request->title??null,
-            'description' => $request->description??null,
-            'price' => $request->price??null,
+        $plan = Plan::whereId($request->plan_id)->first();
+
+        $plan = Plan::whereId($request->plan_id)->update([
+            'title' => $request->title??$plan->title,
+            'description' => $request->description??$plan->description,
+            'price' => $request->price??$plan->price,
+            'duration_day' => $request->duration_day??$plan->duration_day,
         ]);
 
-        $plan = Plan::whereId($request->plan_id)->first();
+        
 
         if($plan){
             return response()->json([
@@ -1018,6 +1190,7 @@ class ApiController extends Controller
             "data" => null,
         ]);
     }
+
 
 
 
@@ -1241,5 +1414,92 @@ class ApiController extends Controller
     //         "data" => null,
     //     ]);
     // }
+
+    
+    private function add_new_payment_monthly($user_id) {
+
+        $sponser = User::whereId($user_id)->where('role_id',3)->with(['payment.payment_info'])->first();
+
+        if($sponser){
+
+        }
+        return response()->json([
+            'status' => 404,
+            "msg" => "Sponser is not Exist",
+            "data" => null,
+        ]);
+    }
+
+    private function add_user_notification_settings($user_id) {
+        $user = User::where('id',$user_id)->with(['notification_settings'])->first();
+        
+        if($user){
+            if(count($user->notification_settings)>0 && $user->notification_settings){
+                foreach ($user->notification_settings as $notification_setting) {
+                    UserNotificationSetting::updateOrCreate([
+                        'user_id' => $user->id,
+                        'notification_setting_id' => $notification_setting->id,
+                    ],[
+                        'user_id' => $user->id,
+                        'notification_setting_id' => $notification_setting->id,
+                        'status' => 0,
+                    ]);
+                }
+            }
+        }
+        // dd($user);
+    }
+
+    private function add_notification($user_id,$notification_setting_id) {
+        $notification = Notification::create([
+            'user_id' => $user_id,
+            'notification_setting_id' => $notification_setting_id,
+        ]);
+
+        if($notification){
+            return [
+                'status' => 200,
+                'msg' => 'Add Notification Successfully',
+                'data' => [
+                    'user_notification' => $user_notification->notification_settings??null,
+                ],
+            ];
+        }
+
+        return [
+            'status' => 404,
+            'msg' => 'Add Notification Faild',
+            'data' => null,
+        ];
+        
+    }
+    
+    private function get_notifications($user_id) {
+
+        $sql = "
+            SELECT
+                users.id AS user_id,
+                users.name,
+                users.image,
+                notification_settings.title
+            FROM
+                user_notification_settings
+            INNER JOIN notification_settings ON notification_settings.id = user_notification_settings.notification_setting_id
+            INNER JOIN notifications ON notifications.notification_setting_id = notification_settings.id
+            INNER JOIN users ON users.id = notifications.user_id
+            WHERE
+                user_notification_settings.user_id = ? AND user_notification_settings.status = 1;
+        ";
+        $notifications = DB::select($sql,[$user_id]);
+
+        if($notifications){
+            return $notifications;
+        }
+        return response()->json([
+            'status' => 404,
+            "msg" => "Not have any notification",
+            "data" => null,
+        ]);
+    }
 
 }

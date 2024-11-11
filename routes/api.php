@@ -48,9 +48,11 @@ Route::group([
     Route::get('/add_user', [ApiController::class,'add_user'] );
     Route::get('/get_roles', [ApiController::class,'get_roles'] );
     Route::get('/get_notifications', [ApiController::class,'get_notifications'] );
+    Route::get('/update_user_notifications', [ApiController::class,'update_user_notifications'] );
 
     // ********* Sponser Payment *********
     Route::get('/add_plan_payment', [ApiController::class,'add_plan_payment'] );
+    Route::get('/cancel_plan', [ApiController::class,'cancel_plan'] );
     Route::get('/update_payment_status', [ApiController::class,'update_payment_status'] );
     Route::get('/get_plan_with_details', [ApiController::class,'get_plan_with_details'] );
 

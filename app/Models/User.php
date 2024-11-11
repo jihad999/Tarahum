@@ -44,6 +44,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public function role(){
         return $this->belongsTo(Role::class, 'role_id', 'id');
     }
+
     public function orphan(){
         return $this->belongsTo(orphan::class, 'orphan_id', 'id');
     }
@@ -66,5 +67,13 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function notification_settings(){
         return $this->hasMany(NotificationSetting::class, 'role_id', 'role_id');
+    }
+
+    public function user_notifications(){
+        return $this->hasMany(UserNotificationSetting::class, 'user_id', 'id');
+    }
+
+    public function notifications(){
+        return $this->hasMany(Notification::class, 'notification_setting_id', 'id');
     }
 }
