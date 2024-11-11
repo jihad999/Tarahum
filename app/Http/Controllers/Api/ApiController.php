@@ -3,22 +3,17 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\AddPaymentMonthly;
-use App\Models\Friend;
+use App\Jobs\AddPaymentMonthlyJob;
 use App\Models\Notification;
 use App\Models\NotificationSetting;
 use App\Models\Orphan;
-use App\Models\OrphanSponser;
 use App\Models\Payment;
 use App\Models\PaymentDetail;
-use App\Models\PaymentInformation;
 use App\Models\Plan;
 use App\Models\Post;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserNotificationSetting;
-use App\Models\VerificationCode;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -677,7 +672,7 @@ class ApiController extends Controller
                 'price' => $plan->price,
             ]);
 
-            AddPaymentMonthly::dispatch($payment->id);
+            AddPaymentMonthlyJob::dispatch($payment->id);
 
             return response()->json([
                 'status' => 200,
