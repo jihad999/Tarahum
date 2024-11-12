@@ -14,6 +14,7 @@ use App\Models\Post;
 use App\Models\Role;
 use App\Models\User;
 use App\Models\UserNotificationSetting;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -111,7 +112,7 @@ class ApiController extends Controller
             'location' => 'required|string|min:3|max:191',
             'about' => 'required|string|min:3|max:500',
             'date' => 'required|date',
-            'image' => 'nullable|min:3|max:191|mimes:png,jpg,jpeg,svg',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'age' => 'required|numeric',
         ]);
 
@@ -352,8 +353,7 @@ class ApiController extends Controller
     function update_image_profile(Request $request) {
         $validator = Validator::make($request->all(), [
             'user_id' => 'required|numeric|exists:users,id',
-            'image' => 'required|min:3|max:191',
-            // |mimes:png,jpg,jpeg,svg
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
         ]);
 
         if ($validator->fails()) {
@@ -647,7 +647,6 @@ class ApiController extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
         }
-        // expired_date
         $sponser = User::whereId($request->user_id)->where('role_id',3)->with(['orphan'])->first();
 
         if($sponser){
@@ -857,8 +856,7 @@ class ApiController extends Controller
             'user_id' => 'required|numeric|exists:users,id',
             'orphan_id' => 'nullable|numeric|exists:orphans,id',
             'description' => 'required|string|min:3|max:500',
-            'image' => 'required|min:3|max:191',
-            // |mimes:png,jpg,jpeg,svg
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'title' => 'nullable|min:3|max:191|string',
         ]);
         if ($validator->fails()) {
@@ -944,8 +942,7 @@ class ApiController extends Controller
             'post_id' => 'required|numeric|exists:posts,id',
             'orphan_id' => 'nullable|numeric|exists:orphans,id',
             'description' => 'nullable|string|min:3|max:500',
-            'image' => 'nullable|min:3|max:191',
-            // |mimes:png,jpg,jpeg,svg
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
             'title' => 'nullable|min:3|max:191|string',
         ]);
         if ($validator->fails()) {

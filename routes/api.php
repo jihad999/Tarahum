@@ -42,7 +42,7 @@ Route::group([
     Route::get('/sponser_assign_orphan', [ApiController::class,'sponser_assign_orphan'] );
     
     // ********* Settings *********
-    Route::get('/update_image_profile', [ApiController::class,'update_image_profile'] );
+    Route::post('/update_image_profile', [ApiController::class,'update_image_profile'] );
     Route::get('/update_my_account', [ApiController::class,'update_my_account'] );
     Route::get('/manage_users', [ApiController::class,'manage_users'] );
     Route::get('/add_user', [ApiController::class,'add_user'] );
