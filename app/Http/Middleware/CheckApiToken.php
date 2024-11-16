@@ -15,8 +15,8 @@ class CheckApiToken
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if($request->has('token')){
-            if($request->token == env('API_TOKEN')){
+        if($request->header('authorization')){
+            if($request->header('authorization') == env('API_TOKEN')){
                 return $next($request);
             }
             return response()->json([

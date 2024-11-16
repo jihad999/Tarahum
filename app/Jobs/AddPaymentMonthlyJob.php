@@ -26,7 +26,7 @@ class AddPaymentMonthlyJob implements ShouldQueue
     {
         $payment = Payment::whereId($this->payment_id)->first();
         $plan = Plan::whereId($payment->plan_id)->first();
-        if($payment){
+        if($payment->statis == 1){
             $payment_info = PaymentDetail::updateOrCreate([
                 'payment_id' => $payment->id,
             ],[

@@ -40,7 +40,7 @@ Route::group([
     Route::get('/get_orphans', [ApiController::class,'get_orphans'] );
     Route::post('/add_orphan', [ApiController::class,'add_orphan'] );
     Route::get('/get_orphan', [ApiController::class,'get_orphan'] );
-    Route::get('/sponser_assign_orphan', [ApiController::class,'sponser_assign_orphan'] );
+    Route::post('/sponser_assign_orphan', [ApiController::class,'sponser_assign_orphan'] );
     
     // ********* Settings *********
     Route::post('/update_image_profile', [ApiController::class,'update_image_profile'] );
@@ -48,7 +48,7 @@ Route::group([
     Route::get('/manage_users', [ApiController::class,'manage_users'] );
     Route::post('/add_user', [ApiController::class,'add_user'] );
     Route::get('/get_roles', [ApiController::class,'get_roles'] );
-    Route::get('/get_notifications', [ApiController::class,'get_notifications'] );
+    // Route::get('/get_notifications', [ApiController::class,'get_notifications'] );
     Route::post('/update_user_notifications', [ApiController::class,'update_user_notifications'] );
 
     // ********* Sponser Payment *********

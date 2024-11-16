@@ -46,7 +46,7 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     public function orphan(){
-        return $this->belongsTo(orphan::class, 'orphan_id', 'id');
+        return $this->belongsTo(Orphan::class, 'orphan_id', 'id');
     }
 
     public function friends(){

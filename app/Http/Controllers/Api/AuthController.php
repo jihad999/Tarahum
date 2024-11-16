@@ -3,11 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Friend;
 use App\Models\Notification;
-use App\Models\Orphan;
-use App\Models\OrphanSponser;
-use App\Models\Post;
 use App\Models\User;
 use App\Models\UserNotificationSetting;
 use App\Models\VerificationCode;
@@ -34,20 +30,27 @@ class AuthController extends Controller
         $user = User::whereEmail($request->email)->first();
 
         if($user){
+            if(Hash::check($request->current_password, $user->password)){
+                return response()->json([
+                    'status' => 200,
+                    "msg" => "User is Exist",
+                    "data" => [
+                        'user' => $user,
+                    ],
+                ]);
+            }
             return response()->json([
-                'status' => 200,
-                "msg" => "User is Exist",
-                "data" => [
-                    'user' => $user,
-                ],
-            ]);
+                'status' => 401,
+                "msg" => "password is wrong",
+                "data" => null,
+            ],401);
         }
 
         return response()->json([
             'status' => 401,
             "msg" => "Unauthorized",
             "data" => null,
-        ]);
+        ],401);
         
     }
     
@@ -57,7 +60,6 @@ class AuthController extends Controller
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6|confirmed',
             'accept_policy' => 'required|numeric',
-            'role_id' => 'nullable|numeric|exists:roles,id',
         ]);
 
         if ($validator->fails()) {
@@ -73,34 +75,35 @@ class AuthController extends Controller
                 "data" => [
                     'user' => $user,
                 ],
-            ]);
-        }else{
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => $request->password,
-                'accept_policy' => ($request->accept_policy >= 1 ) ? 1 : 0,
-                'role_id' => 3,
-                'status' => 'Assigned',
-            ]);
-
-            $this->add_user_notification_settings($user->id);
-
-            $this->add_notification($user->id , 1);
-
-            return response()->json([
-                'status' => 201,
-                "msg" => "User registered successfully. Check your email for the verification code.",
-                "data" => [
-                    'user' => $user,
-                ],
-            ]);
+            ],404);
         }
+
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => $request->password,
+            'accept_policy' => ($request->accept_policy >= 1 ) ? 1 : 0,
+            'role_id' => 3,
+            'status' => 'Not Assigned',
+        ]);
+
+        $this->add_user_notification_settings($user->id);
+
+        $this->add_notification($user->id , 1);
+
+        return response()->json([
+            'status' => 200,
+            "msg" => "User registered successfully.",
+            "data" => [
+                'user' => $user,
+            ],
+        ],200);
+        
     }
 
     function forget_password(Request $request) {
         $validator = Validator::make($request->all(), [
-            'email' => 'required|email'
+            'email' => 'required|exists:users,email',
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
@@ -126,6 +129,7 @@ class AuthController extends Controller
                 "msg" => "Send Code Successfully",
                 "data" => [
                     'user' => $user,
+                    'code' => $code,
                 ],
             ]);
         }else{
@@ -133,7 +137,48 @@ class AuthController extends Controller
                 'status' => 404,
                 "msg" => "Email does not Exist",
                 "data" => null,
+            ],404);
+        }
+    }
+
+    function resend_code(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|exists:users,email',
+        ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $verificationCode = VerificationCode::where('email',$request->email)->first();
+        $user = User::whereEmail($request->email)->first();
+        if($verificationCode){
+            $verificationCode->delete();
+            $code = Str::random(4);
+            VerificationCode::create([
+                'email' => $request->email,
+                'code' => $code,
+                'verify_to' => Carbon::now()->addMinutes(15),
             ]);
+
+            Mail::send('emails.verification', ['code' => $code], function ($message) use ($request) {
+                $message->to($request->email);
+                $message->subject('Email Verification Code');
+            });
+
+            return response()->json([
+                'status' => 200,
+                "msg" => "Resend Code Successfully",
+                "data" => [
+                    'user' => $user,
+                    'code' => $code,
+                ],
+            ]);
+        }else{
+            return response()->json([
+                'status' => 404,
+                "msg" => "shoud be reser code firstly",
+                "data" => null,
+            ],404);
         }
     }
 
@@ -157,7 +202,7 @@ class AuthController extends Controller
                 'status' => 400,
                 "msg" => "Invalid Verification Code, Please request another code.",
                 "data" => null,
-            ]);
+            ],400);
         }
 
         if (!is_null($verificationCode->verify_to) && ($verificationCode->verify_to < Carbon::now())) {
@@ -168,7 +213,7 @@ class AuthController extends Controller
                 'status' => 400,
                 "msg" => "Expired Verification Code.",
                 "data" => null,
-            ]);
+            ],400);
         }
 
         $verificationCode->delete();
@@ -211,7 +256,7 @@ class AuthController extends Controller
                 'status' => 401,
                 "msg" => "Unauthorized",
                 "data" => null,
-            ]);
+            ],401);
         }
     }
 
@@ -227,12 +272,11 @@ class AuthController extends Controller
                     ],[
                         'user_id' => $user->id,
                         'notification_setting_id' => $notification_setting->id,
-                        'status' => 0,
+                        'status' => 1,
                     ]);
                 }
             }
         }
-        // dd($user);
     }
 
     private function add_notification($user_id,$notification_setting_id) {
@@ -242,20 +286,49 @@ class AuthController extends Controller
         ]);
 
         if($notification){
-            return [
+            return response()->json([
                 'status' => 200,
                 'msg' => 'Add Notification Successfully',
                 'data' => [
                     'user_notification' => $user_notification->notification_settings??null,
                 ],
-            ];
+            ]);
         }
 
-        return [
+        return response()->json([
             'status' => 404,
             'msg' => 'Add Notification Faild',
             'data' => null,
-        ];
+        ],404);
         
+    }
+    
+    private function get_notifications($user_id) {
+
+        $sql = "
+            SELECT
+                user_notification_settings.id,
+                users.id AS user_id,
+                users.name,
+                users.image,
+                notification_settings.title
+            FROM
+                user_notification_settings
+            INNER JOIN notification_settings ON notification_settings.id = user_notification_settings.notification_setting_id
+            INNER JOIN notifications ON notifications.notification_setting_id = notification_settings.id
+            INNER JOIN users ON users.id = notifications.user_id
+            WHERE
+                user_notification_settings.user_id = ? AND user_notification_settings.status = 1;
+        ";
+        $notifications = DB::select($sql,[$user_id]);
+
+        if($notifications){
+            return $notifications;
+        }
+        return response()->json([
+            'status' => 404,
+            "msg" => "Not have any notification",
+            "data" => null,
+        ],404);
     }
 }

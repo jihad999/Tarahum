@@ -76,13 +76,13 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "User is not exist",
             "data" => null,
-        ]);
+        ],404);
     }
 
     // Tarhum 
     function get_orphans(Request $request)  {
         $validator = Validator::make($request->all(), [
-            'status' => 'nullable|string|exists:orphans,status',
+            'status' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -127,7 +127,7 @@ class ApiController extends Controller
                 'status' => 404,
                 "msg" => "Guardian not exist",
                 "data" => null,
-            ]);
+            ],404);
         }
 
         $guardian = User::where('id',$request->guardian_id)->where('role_id',2)->where('orphan_id',null)->first();
@@ -137,7 +137,15 @@ class ApiController extends Controller
                 'status' => 404,
                 "msg" => "Guardian has an orphan",
                 "data" => null,
-            ]);
+            ],404);
+        }
+        
+        $imageName = null;
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $imageName = time() . '-' . $image->getClientOriginalName();
+            $publicPath = public_path('images');
+            $image->move($publicPath, $imageName);
         }
 
         $orphan = Orphan::updateOrCreate([
@@ -150,7 +158,7 @@ class ApiController extends Controller
             'location' => $request->location??null,
             'about' => $request->about??null,
             'date' => $request->date??null,
-            'image' => $request->image??null,
+            'image' => $imageName??null,
             'age' => $request->age??null,
             'status' => 'Not Sponserd',
         ]);
@@ -174,7 +182,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "Orphan Added Faild",
             "data" => null,
-        ]);
+        ],404);
         
     }
 
@@ -204,7 +212,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "Orphan not Found",
             "data" => null,
-        ]);
+        ],404);
     }
 
     function sponser_assign_orphan(Request $request) {
@@ -226,7 +234,7 @@ class ApiController extends Controller
                     'status' => 404,
                     "msg" => "Orphan has sponser",
                     "data" => null,
-                ]);
+                ],404);
             }
 
             $sponser = User::whereId($request->sponser_id)->where('role_id',3)->whereNull('orphan_id')->first();
@@ -236,7 +244,7 @@ class ApiController extends Controller
                     'status' => 404,
                     "msg" => "sponser_id not exist",
                     "data" => null,
-                ]);
+                ],404);
             }
 
             if(!$sponser){
@@ -244,7 +252,7 @@ class ApiController extends Controller
                     'status' => 404,
                     "msg" => "sponser has orphan",
                     "data" => null,
-                ]);
+                ],404);
             }
             
             if($sponser){
@@ -278,19 +286,19 @@ class ApiController extends Controller
                     'orphan' => $orphan,
                     'guardian' => $orphan->guardian??null,
                 ],
-            ]);
+            ],404);
         }
 
         return response()->json([
             'status' => 404,
             "msg" => "Orphan Not Exist",
             "data" => null,
-        ]);
+        ],404);
     }
 
     function get_sponsers(Request $request)  {
         $validator = Validator::make($request->all(), [
-            'status' => 'nullable|string|exists:users,status',
+            'status' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -312,16 +320,17 @@ class ApiController extends Controller
                 ],
             ]);
         }
+
         return response()->json([
-            'status' => 200,
+            'status' => 404,
             "msg" => "not exist any sponser",
             "data" => null,
-        ]);
+        ],404);
     }
 
     function get_sponser(Request $request)  {
         $validator = Validator::make($request->all(), [
-            'user_id' => 'nullable|string|exists:users,id',
+            'user_id' => 'required|string|exists:users,id',
         ]);
 
         if ($validator->fails()) {
@@ -345,7 +354,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "Sponser not Exist",
             "data" => null,
-        ]);
+        ],404);
         
     }
 
@@ -363,8 +372,17 @@ class ApiController extends Controller
         $user = User::whereId($request->user_id)->first();
 
         if($user){
+            
+            $imageName = null;
+            if ($request->hasFile('image')) {
+                $image = $request->file('image');
+                $imageName = time() . '-' . $image->getClientOriginalName();
+                $publicPath = public_path('images');
+                $image->move($publicPath, $imageName);
+            }
+                
             $user->update([
-                'image' => $request->image,
+                'image' => $imageName,
             ]);
 
             return response()->json([
@@ -379,7 +397,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "User not found",
             "data" => null,
-        ]);
+        ],404);
     }
 
     function update_my_account(Request $request) {
@@ -402,7 +420,7 @@ class ApiController extends Controller
                     'status' => 404,
                     "msg" => "Current Password is Wrong!",
                     "data" => null,
-                ]);
+                ],404);
             }
 
             $user->update([
@@ -422,12 +440,12 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "Update my account Failed",
             "data" => null,
-        ]);
+        ],404);
     }
 
     function manage_users(Request $request) {
         $validator = Validator::make($request->all(), [
-            'user_id' => 'required|users|exists:users,id',
+            'user_id' => 'required|exists:users,id',
             'role_id' => 'nullable|numeric|exists:roles,id',
             'name' => 'nullable|string',
         ]);
@@ -436,10 +454,11 @@ class ApiController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        $user = User::whereId($request->user_id)->first();
+        $user = User::whereId($request->user_id)->where('role_id',1)->first();
+        
         if($user){
             if($user->role_id == 1){
-                $users = User::where('id',"<>",$user->id)->with('role');
+                $users = User::where('id',"<>",$user->id);
                 if(isset($request->role_id) && !is_null($request->role_id)){
                     $users = $users->where('role_id',$request->role_id);
                 }
@@ -459,14 +478,14 @@ class ApiController extends Controller
                 'status' => 404,
                 "msg" => "Not have a permissions",
                 "data" => null,
-            ]);
+            ],404);
         }
 
         return response()->json([
             'status' => 404,
-            "msg" => "The user is not exist.",
+            "msg" => "The user is not exist or Not have a tarahum permissions.",
             "data" => null,
-        ]);
+        ],404);
     }
 
     function add_user(Request $request) {
@@ -510,17 +529,18 @@ class ApiController extends Controller
                 'status' => 200,
                 "msg" => "User added successfully. Check your email for get password.",
                 "data" => [
+                    'password' => $password,
                     'user' => $user,
                 ],
-            ]);
+            ],);
         }
         return response()->json([
-            'status' => 200,
+            'status' => 404,
             "msg" => "User Already Exist",
             "data" => [
                 'user' => $user,
             ],
-        ]);
+        ],404);
     }
 
     function get_roles() {
@@ -535,10 +555,10 @@ class ApiController extends Controller
             ]);
         }
         return response()->json([
-            'status' => 200,
+            'status' => 404,
             "msg" => "not exist any roles",
             "data" => null,
-        ]);
+        ],404);
     }
 
     // function get_notifications(Request $request) {
@@ -598,38 +618,38 @@ class ApiController extends Controller
 
                 if($notification_setting){
                     $user->user_notifications->where('notification_setting_id',$request->notification_setting_id)->first()->update(['status'=>($request->status) ? 1 : 0]);
-                    return [
+                    return response()->json([
                         'status' => 200,
                         'msg' => 'update notification successfully',
                         'data' => [
                             'user' => $user??null,
                             'notifications' => $user->user_notifications??null,
                         ],
-                    ];
+                    ]);
                 }
-                return [
+                return response()->json([
                     'status' => 404,
                     'msg' => 'notification setting id not compataple with user',
                     'data' => [
                         'user' => $user??null,
                         'notification_setting_id' => $request->notification_setting_id??null,
                     ],
-                ];
+                ],404);
             }
 
-            return [
+            return response()->json([
                 'status' => 404,
                 'msg' => 'User not have a notifications',
                 'data' => [
                     'user' => $user??null,
                 ],
-            ];
+            ],404);
         }
-        return [
+        return response()->json([
             'status' => 404,
             'msg' => 'User not exist',
             'data' => null,
-        ];
+        ],404);
     }
 
     // Payments
@@ -638,11 +658,6 @@ class ApiController extends Controller
             'user_id' => 'required|numeric|exists:users,id',
             'plan_id' => 'required|numeric|exists:plans,id',
             'billing_ship_address' => 'required|numeric',
-            'card_type' => 'required|string|min:3|max:191',
-            'card_name' => 'required|string|min:3|max:191',
-            'card_number' => 'required|numeric',
-            'expired_date' => 'required',
-            'cvv' => 'required|numeric',
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
@@ -656,12 +671,8 @@ class ApiController extends Controller
             ],[
                 'sponser_id' => $sponser->id,
                 'plan_id' => $request->plan_id,
-                'card_type' => $request->card_type,
-                'card_name' => $request->card_name,
-                'card_number' => $request->card_number,
-                'expired_date' => $request->expired_date,
-                'cvv' => $request->cvv,
                 'billing_ship_address' => $request->billing_ship_address ? 1 : 0,
+                'status' => 1,
             ]);
 
             $payment_info = PaymentDetail::updateOrCreate([
@@ -688,7 +699,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "Sponser is not Exist",
             "data" => null,
-        ]);
+        ],404);
     }
     
     function update_payment_status(Request $request) {
@@ -732,14 +743,14 @@ class ApiController extends Controller
                 "data" => [
                     'sponser' => $sponser,
                 ],
-            ]);
+            ],404);
             
         } 
         return response()->json([
             'status' => 404,
             "msg" => "Sponser is not Exist",
             "data" => null,
-        ]);
+        ],404);
     }
     
     function get_plan_with_details(Request $request)  {
@@ -758,7 +769,7 @@ class ApiController extends Controller
                     'status' => 404,
                     "msg" => "Sponser doesn't have any payment",
                     "data" => null,
-                ]);
+                ],404);
             }
 
             if(is_null($sponser->payment->plan)){
@@ -766,7 +777,7 @@ class ApiController extends Controller
                     'status' => 404,
                     "msg" => "Sponser doesn't have any plan",
                     "data" => null,
-                ]);
+                ],404);
             }
 
             if(is_null($sponser->payment->payment_info)){
@@ -774,7 +785,7 @@ class ApiController extends Controller
                     'status' => 404,
                     "msg" => "Sponser doesn't have payment history",
                     "data" => null,
-                ]);
+                ],404);
             }
 
             return response()->json([
@@ -792,7 +803,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "Sponser is not Exist",
             "data" => null,
-        ]);
+        ],404);
     }
 
     function cancel_plan(Request $request) {
@@ -819,12 +830,14 @@ class ApiController extends Controller
             ]);
 
             if($sponser->payment){
-                Payment::where('sponser_id',$sponser->id)->delete();
-                if(count($sponser->payment->payment_info)>0 && $sponser->payment->payment_info){
-                    foreach ($sponser->payment->payment_info as $payment_info) {
-                        PaymentDetail::where('payment_id',$payment_info->id)->delete();
-                    }
-                }
+                Payment::where('sponser_id',$sponser->id)->update([
+                    'status' => 0,
+                ]);
+                // if(count($sponser->payment->payment_info)>0 && $sponser->payment->payment_info){
+                //     foreach ($sponser->payment->payment_info as $payment_info) {
+                //         PaymentDetail::where('payment_id',$payment_info->id)->delete();
+                //     }
+                // }
                 return response()->json([
                     'status' => 200,
                     "msg" => "Sponser cancel plan successfully",
@@ -847,7 +860,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "Sponser is not Exist",
             "data" => null,
-        ]);
+        ],404);
     }
 
     // Posts
@@ -862,12 +875,20 @@ class ApiController extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
         }
+        
+        $imageName = null;
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $imageName = time() . '-' . $image->getClientOriginalName();
+            $publicPath = public_path('images');
+            $image->move($publicPath, $imageName);
+        }
 
         $post = Post::create([
             'description' => $request->description??null,
             'user_id' => $request->user_id??null,
             'orphan_id' => $request->orphan_id??null,
-            'image' => $request->image??null,
+            'image' => $imageName??null,
             'title' => $request->title??null,
         ]);
 
@@ -880,7 +901,7 @@ class ApiController extends Controller
 
             $orphan = User::whereId($request->orphan_id)->first();
 
-            if($user){
+            if($orphan){
                 return response()->json([
                     'status' => 200,
                     "msg" => "Publish your post successfully",
@@ -905,7 +926,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "Publish your post not successfully",
             "data" => null,
-        ]);
+        ],404);
 
     }
 
@@ -933,7 +954,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "The post not found",
             "data" => null,
-        ]);
+        ],404);
 
     }
 
@@ -950,15 +971,22 @@ class ApiController extends Controller
         }
 
         $post = Post::whereId($request->post_id)->with('user')->first();
+        
+        $imageName = null;
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $imageName = time() . '-' . $image->getClientOriginalName();
+            $publicPath = public_path('images');
+            $image->move($publicPath, $imageName);
+        }
+        
         $post->update([
             'description' => $request->description??$post->description,
-            'image' => $request->image??$post->image,
+            'image' => $imageName??$post->image,
             'title' => $request->title??$post->title,
         ]);
 
         if($post){
-            
-            // dd($post);
             return response()->json([
                 'status' => 200,
                 "msg" => "Publish your update successfully",
@@ -972,7 +1000,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "Edit your update not successfully",
             "data" => null,
-        ]);
+        ],404);
 
     }
 
@@ -1034,7 +1062,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "The User doesn't have any post",
             "data" => null,
-        ]);
+        ],404);
 
     }
 
@@ -1059,7 +1087,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "Delete Post faild",
             "data" => null,
-        ]);
+        ],404);
     }
 
     // Plans
@@ -1080,7 +1108,7 @@ class ApiController extends Controller
             "data" => [
                 'plans' => $plans,
             ],
-        ]);
+        ],404);
     }
     
     function add_plan(Request $request) {
@@ -1115,7 +1143,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "Add plan faild",
             "data" => null,
-        ]);
+        ],404);
     }
 
     function update_plan(Request $request) {
@@ -1155,7 +1183,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "Update plan faild",
             "data" => null,
-        ]);
+        ],404);
     }
 
     function delete_plan(Request $request) {
@@ -1180,7 +1208,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "Delete plan faild",
             "data" => null,
-        ]);
+        ],404);
     }
 
 
@@ -1408,19 +1436,19 @@ class ApiController extends Controller
     // }
 
     
-    private function add_new_payment_monthly($user_id) {
+    // private function add_new_payment_monthly($user_id) {
 
-        $sponser = User::whereId($user_id)->where('role_id',3)->with(['payment.payment_info'])->first();
+    //     $sponser = User::whereId($user_id)->where('role_id',3)->with(['payment.payment_info'])->first();
 
-        if($sponser){
+    //     if($sponser){
 
-        }
-        return response()->json([
-            'status' => 404,
-            "msg" => "Sponser is not Exist",
-            "data" => null,
-        ]);
-    }
+    //     }
+    //     return response()->json([
+    //         'status' => 404,
+    //         "msg" => "Sponser is not Exist",
+    //         "data" => null,
+    //     ]);
+    // }
 
     private function add_user_notification_settings($user_id) {
         $user = User::where('id',$user_id)->with(['notification_settings'])->first();
@@ -1434,12 +1462,11 @@ class ApiController extends Controller
                     ],[
                         'user_id' => $user->id,
                         'notification_setting_id' => $notification_setting->id,
-                        'status' => 0,
+                        'status' => 1,
                     ]);
                 }
             }
         }
-        // dd($user);
     }
 
     private function add_notification($user_id,$notification_setting_id) {
@@ -1449,20 +1476,20 @@ class ApiController extends Controller
         ]);
 
         if($notification){
-            return [
+            return response()->json([
                 'status' => 200,
                 'msg' => 'Add Notification Successfully',
                 'data' => [
                     'user_notification' => $user_notification->notification_settings??null,
                 ],
-            ];
+            ]);
         }
 
-        return [
+        return response()->json([
             'status' => 404,
             'msg' => 'Add Notification Faild',
             'data' => null,
-        ];
+        ],404);
         
     }
     
@@ -1470,6 +1497,7 @@ class ApiController extends Controller
 
         $sql = "
             SELECT
+                user_notification_settings.id,
                 users.id AS user_id,
                 users.name,
                 users.image,
@@ -1491,7 +1519,7 @@ class ApiController extends Controller
             'status' => 404,
             "msg" => "Not have any notification",
             "data" => null,
-        ]);
+        ],404);
     }
 
 }
