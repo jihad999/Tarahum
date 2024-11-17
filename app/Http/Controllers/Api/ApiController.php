@@ -229,27 +229,15 @@ class ApiController extends Controller
             'image' => $imageName??$orphan->image,
             'age' => $request->age??$orphan->age,
         ]);
-
         
-        $guardian = $guardian->update([
-            'orphan_id' => $orphan->id,
-        ]);
-
-        if($orphan){
-            return response()->json([
-                'status' => 200,
-                "msg" => "Orphan Added Successfully",
-                "data" => [
-                    'orphan' => $orphan,
-                ],
-            ]);
-        }
 
         return response()->json([
-            'status' => 404,
-            "msg" => "Orphan Added Faild",
-            "data" => null,
-        ],404);
+            'status' => 200,
+            "msg" => "Orphan updated Successfully",
+            "data" => [
+                'orphan' => $orphan,
+            ],
+        ]);
         
     }
 
@@ -1520,14 +1508,24 @@ class ApiController extends Controller
         }
         $sponser = User::where('role_id',3)->where('id',$request->user_id)->first();
         if($sponser){
-            $this->add_notification($sponser->id,8);
+            if(!is_null($sponser->orphan_id)){
+                $this->add_notification($sponser->id,8);
+                return response()->json([
+                    'status' => 200,
+                    "msg" => "Sucssess request payment",
+                    "sponser" => [
+                        'sponser' => $sponser,
+                    ],
+                ]);
+            }
             return response()->json([
-                'status' => 200,
-                "msg" => "Faild request payment",
+                'status' => 400,
+                "msg" => "Not have an orphan",
                 "sponser" => [
                     'sponser' => $sponser,
                 ],
-            ],404);
+            ]);
+            
         }
         return response()->json([
             'status' => 404,
