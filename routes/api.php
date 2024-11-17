@@ -39,6 +39,7 @@ Route::group([
     Route::get('/get_sponsers', [ApiController::class,'get_sponsers'] );
     Route::get('/get_orphans', [ApiController::class,'get_orphans'] );
     Route::post('/add_orphan', [ApiController::class,'add_orphan'] );
+    Route::post('/update_orphan', [ApiController::class,'update_orphan'] );
     Route::get('/get_orphan', [ApiController::class,'get_orphan'] );
     Route::post('/sponser_assign_orphan', [ApiController::class,'sponser_assign_orphan'] );
     
@@ -69,5 +70,11 @@ Route::group([
     Route::post('/update_post', [ApiController::class,'update_post'] );
     Route::get('/get_post', [ApiController::class,'get_post'] );
     Route::post('/delete_post', [ApiController::class,'delete_post'] );
+    
+    // ********* Guardians *********
+    Route::get('/get_guardians', [ApiController::class,'get_guardians'] );
+    Route::get('/get_guardian', [ApiController::class,'get_guardian'] );
+    Route::get('/request_payment', [ApiController::class,'request_payment'] );
+    // INSERT INTO `notification_settings` (`id`, `title`, `role_id`, `created_at`, `updated_at`, `deleted_at`) VALUES (NULL, 'Sponser Request Payment', NULL, '2024-11-06 20:27:43', '2024-11-06 20:27:43', '2024-11-06 20:27:43');
     
 });

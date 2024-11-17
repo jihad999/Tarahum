@@ -186,6 +186,73 @@ class ApiController extends Controller
         
     }
 
+    function update_orphan(Request $request)  {
+        $validator = Validator::make($request->all(), [
+            'orphan_id' => 'required|numeric|exists:users,id',
+            'first_name' => 'nullable|string|min:3|max:191',
+            'last_name' => 'nullable|string|min:3|max:191',
+            'location' => 'nullable|string|min:3|max:191',
+            'about' => 'nullable|string|min:3|max:500',
+            'date' => 'nullable|date',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max:2048',
+            'age' => 'nullable|numeric',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $orphan = Orphan::where('id',$request->orphan_id)->first();
+
+        if(!$orphan){
+            return response()->json([
+                'status' => 404,
+                "msg" => "Orphan not exist",
+                "data" => null,
+            ],404);
+        }
+
+        $imageName = $orphan->image??null;
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $imageName = time() . '-' . $image->getClientOriginalName();
+            $publicPath = public_path('images');
+            $image->move($publicPath, $imageName);
+        }
+
+        $orphan->update([
+            'first_name' => $request->first_name??$orphan->first_name,
+            'last_name' => $request->last_name??$orphan->last_name,
+            'location' => $request->location??$orphan->location,
+            'about' => $request->about??$orphan->about,
+            'date' => $request->date??$orphan->date,
+            'image' => $imageName??$orphan->image,
+            'age' => $request->age??$orphan->age,
+        ]);
+
+        
+        $guardian = $guardian->update([
+            'orphan_id' => $orphan->id,
+        ]);
+
+        if($orphan){
+            return response()->json([
+                'status' => 200,
+                "msg" => "Orphan Added Successfully",
+                "data" => [
+                    'orphan' => $orphan,
+                ],
+            ]);
+        }
+
+        return response()->json([
+            'status' => 404,
+            "msg" => "Orphan Added Faild",
+            "data" => null,
+        ],404);
+        
+    }
+
     function get_orphan(Request $request) {
         $validator = Validator::make($request->all(), [
             'orphan_id' => 'required|numeric|exists:orphans,id',
@@ -1013,17 +1080,17 @@ class ApiController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        $user = User::where('id',$request->user_id)->with('posts')->first();
+        $user = User::where('id',$request->user_id)->first();
         
         if($user){
-            if($user->posts && count($user->posts)>0){
-                $user->posts = $user->posts->where('orphan_id',null);
+            $posts = Post::where('user_id',$user->id)->where('orphan_id',null)->get();
+            if($posts && count($posts)>0){
                 return response()->json([
                     'status' => 200,
                     "msg" => "Get Posts",
                     "data" => [
                         'user' => $user??null,
-                        'posts' => $user->posts??null,
+                        'posts' => $posts??null,
                     ],
                 ]);
             }
@@ -1370,71 +1437,104 @@ class ApiController extends Controller
     //     ];
     // }
     
-    // function get_guardians()  {
+    function get_guardians() {
+        $guardians = User::where('role_id',2)->where('orphan_id',null)->get();
+        return response()->json([
+            'status' => 200,
+            "msg" => "Get guardians",
+            "data" => [
+                'guardians' => $guardians,
+            ],
+        ]);
+    }
+
+    function get_guardian(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|string|exists:users,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+        $guardian = User::where('role_id',2)->where('id',$request->user_id)->first();
         
-    //     $guardians = User::where('role_id',2)->get();
-        
-    //     return response()->json([
-    //         'status' => 200,
-    //         "msg" => "Get guardians",
-    //         "data" => [
-    //             'guardians' => $guardians,
-    //         ],
-    //     ]);
-    // }
+        if($guardian){
+            return response()->json([
+                'status' => 200,
+                "msg" => "Get guardian",
+                "data" => [
+                    'guardian' => $guardian,
+                ],
+            ]);
+        }
 
-    // function get_guardian(Request $request)  {
-    //     $validator = Validator::make($request->all(), [
-    //         'user_id' => 'nullable|string|exists:users,id',
-    //     ]);
+        return response()->json([
+            'status' => 404,
+            "msg" => "Guardian not exist",
+            "data" => [
+                'guardian' => $guardian,
+            ],
+        ],404);
+    }
 
-    //     if ($validator->fails()) {
-    //         return response()->json($validator->errors(), 422);
-    //     }
-    //     $guardian = User::where('role_id',2)->where('id',$request->user_id)->first();
-        
-    //     return response()->json([
-    //         'status' => 200,
-    //         "msg" => "Get guardians",
-    //         "data" => [
-    //             'guardian' => $guardian,
-    //         ],
-    //     ]);
-    // }
+    function user_info(Request $request) {
+        // payment history
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|numeric|exists:users,id',
+        ]);
 
-    // function user_info(Request $request) {
-    //     // payment history
-    //     $validator = Validator::make($request->all(), [
-    //         'user_id' => 'required|numeric|exists:users,id',
-    //     ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
 
-    //     if ($validator->fails()) {
-    //         return response()->json($validator->errors(), 422);
-    //     }
+        $user = User::whereId($request->user_id)->where('role_id',3)->with(['friends','role','payment.plan','payment.payment_info'])->first();
 
-    //     $user = User::whereId($request->user_id)->where('role_id',3)->with(['friends','role','payment.plan','payment.payment_info'])->first();
+        if($user){
+            return response()->json([
+                'status' => 200,
+                "msg" => "Get User Info",
+                "data" => [
+                    'user' => $user,
+                    'friends' => $user->friends,
+                    'role' => $user->role,
+                    'plan' => $user->payment->plan,
+                    'payment_info' => $user->payment->payment_info,
+                ],
+            ]);
+        }
 
-    //     if($user){
-    //         return response()->json([
-    //             'status' => 200,
-    //             "msg" => "Get User Info",
-    //             "data" => [
-    //                 'user' => $user,
-    //                 'friends' => $user->friends,
-    //                 'role' => $user->role,
-    //                 'plan' => $user->payment->plan,
-    //                 'payment_info' => $user->payment->payment_info,
-    //             ],
-    //         ]);
-    //     }
+        return response()->json([
+            'status' => 404,
+            "msg" => "Sponser not Found",
+            "data" => null,
+        ]);
+    }
 
-    //     return response()->json([
-    //         'status' => 404,
-    //         "msg" => "Sponser not Found",
-    //         "data" => null,
-    //     ]);
-    // }
+    function request_payment(Request $request) {
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|string|exists:users,id',
+        ]);
 
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+        $sponser = User::where('role_id',3)->where('id',$request->user_id)->first();
+        if($sponser){
+            $this->add_notification($sponser->id,8);
+            return response()->json([
+                'status' => 200,
+                "msg" => "Faild request payment",
+                "sponser" => [
+                    'sponser' => $sponser,
+                ],
+            ],404);
+        }
+        return response()->json([
+            'status' => 404,
+            "msg" => "Faild request payment",
+            "data" => null,
+        ],404);
+    }
     
     // private function add_new_payment_monthly($user_id) {
 
