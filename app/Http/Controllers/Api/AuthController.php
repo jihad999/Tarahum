@@ -173,8 +173,17 @@ class AuthController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        $verificationCode = VerificationCode::where('email',$request->email)->first();
+        
         $user = User::whereEmail($request->email)->first();
+        if(!$user){
+            return response()->json([
+                'status' => 404,
+                'msg' => 'User not exist',
+                'data' => null,
+            ],404);
+        }
+        
+        $verificationCode = VerificationCode::where('email',$request->email)->first();
         if($verificationCode){
             $verificationCode->delete();   
         }
