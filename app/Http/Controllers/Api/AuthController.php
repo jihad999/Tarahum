@@ -175,7 +175,7 @@ class AuthController extends Controller
 
         $verificationCode = VerificationCode::where('email',$request->email)->first();
         $user = User::whereEmail($request->email)->first();
-        if($verificationCode){
+        if(!$verificationCode){
             $verificationCode->delete();
             $code = random_int(1000, 9999);;
             VerificationCode::create([
@@ -197,13 +197,12 @@ class AuthController extends Controller
                     'code' => $code,
                 ],
             ]);
-        }else{
-            return response()->json([
-                'status' => 404,
-                "msg" => "shoud be reser code firstly",
-                "data" => null,
-            ],404);
         }
+        return response()->json([
+            'status' => 404,
+            "msg" => "shoud be resend code Again",
+            "data" => null,
+        ],404);
     }
 
     function confirm_code(Request $request) {
