@@ -175,34 +175,31 @@ class AuthController extends Controller
 
         $verificationCode = VerificationCode::where('email',$request->email)->first();
         $user = User::whereEmail($request->email)->first();
-        if(!$verificationCode){
-            $verificationCode->delete();
-            $code = random_int(1000, 9999);;
-            VerificationCode::create([
-                'email' => $request->email,
-                'code' => $code,
-                'verify_to' => Carbon::now()->addMinutes(15),
-            ]);
-
-            Mail::send('emails.verification', ['code' => $code], function ($message) use ($request) {
-                $message->to($request->email);
-                $message->subject('Email Verification Code');
-            });
-
-            return response()->json([
-                'status' => 200,
-                "msg" => "Resend Code Successfully",
-                "data" => [
-                    'user' => $user,
-                    'code' => $code,
-                ],
-            ]);
+        if($verificationCode){
+            $verificationCode->delete();   
         }
+
+        $code = random_int(1000, 9999);;
+        $verificationCode = VerificationCode::create([
+            'email' => $request->email,
+            'code' => $code,
+            'verify_to' => Carbon::now()->addMinutes(15),
+        ]);
+
+        Mail::send('emails.verification', ['code' => $code], function ($message) use ($request) {
+            $message->to($request->email);
+            $message->subject('Email Verification Code');
+        });
+
         return response()->json([
-            'status' => 404,
-            "msg" => "shoud be resend code Again",
-            "data" => null,
-        ],404);
+            'status' => 200,
+            "msg" => "Resend Code Successfully",
+            "data" => [
+                'user' => $user,
+                'code' => $code,
+                'verification' => $verificationCode,
+            ],
+        ]);
     }
 
     function confirm_code(Request $request) {
