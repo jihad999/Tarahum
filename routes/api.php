@@ -33,6 +33,7 @@ Route::group([
     Route::post('/forget_password', [AuthController::class,'forget_password'] );
     Route::post('/confirm_code', [AuthController::class,'confirm_code'] );
     Route::post('/reset_password', [AuthController::class,'reset_password'] );
+    Route::post('/resend_code', [AuthController::class,'resend_code'] );
 
     // ********* Sponser Orphan *********
     Route::get('/get_sponser', [ApiController::class,'get_sponser'] );
@@ -48,8 +49,9 @@ Route::group([
     Route::post('/update_my_account', [ApiController::class,'update_my_account'] );
     Route::get('/manage_users', [ApiController::class,'manage_users'] );
     Route::post('/add_user', [ApiController::class,'add_user'] );
+    Route::post('/update_user', [ApiController::class,'update_user'] );
     Route::get('/get_roles', [ApiController::class,'get_roles'] );
-    // Route::get('/get_notifications', [ApiController::class,'get_notifications'] );
+    Route::get('/get_user_notification_settings', [ApiController::class,'get_user_notification_settings'] );
     Route::post('/update_user_notifications', [ApiController::class,'update_user_notifications'] );
 
     // ********* Sponser Payment *********
@@ -75,6 +77,5 @@ Route::group([
     Route::get('/get_guardians', [ApiController::class,'get_guardians'] );
     Route::get('/get_guardian', [ApiController::class,'get_guardian'] );
     Route::get('/request_payment', [ApiController::class,'request_payment'] );
-    // INSERT INTO `notification_settings` (`id`, `title`, `role_id`, `created_at`, `updated_at`, `deleted_at`) VALUES (NULL, 'Sponser Request Payment', NULL, '2024-11-06 20:27:43', '2024-11-06 20:27:43', '2024-11-06 20:27:43');
     
 });

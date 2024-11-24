@@ -30,7 +30,16 @@ class AuthController extends Controller
         $user = User::whereEmail($request->email)->first();
 
         if($user){
-            if(Hash::check($request->current_password, $user->password)){
+
+            if(is_null($user->email_verified_at)){
+                return response()->json([
+                    'status' => 404,
+                    "msg" => "User not verified",
+                    "data" => null,
+                ],404);
+            }
+
+            if(Hash::check($request->password, $user->password)){
                 return response()->json([
                     'status' => 200,
                     "msg" => "User is Exist",
@@ -39,6 +48,7 @@ class AuthController extends Controller
                     ],
                 ]);
             }
+            
             return response()->json([
                 'status' => 401,
                 "msg" => "password is wrong",
@@ -58,6 +68,7 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|min:3|max:191',
             'email' => 'required|email|unique:users,email',
+            'mobile' => 'required|string',
             'password' => 'required|min:6|confirmed',
             'accept_policy' => 'required|numeric',
         ]);
@@ -81,11 +92,24 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
+            'mobile' => $request->mobile,
             'password' => $request->password,
             'accept_policy' => ($request->accept_policy >= 1 ) ? 1 : 0,
             'role_id' => 3,
             'status' => 'Not Assigned',
         ]);
+
+        $code = random_int(1000, 9999);;
+        VerificationCode::create([
+            'email' => $user->email,
+            'code' => $code,
+            'verify_to' => Carbon::now()->addMinutes(15),
+        ]);
+
+        Mail::send('emails.verification', ['code' => $code], function ($message) use ($user) {
+            $message->to($user->email);
+            $message->subject('Email Verification Code');
+        });
 
         $this->add_user_notification_settings($user->id);
 
@@ -112,7 +136,7 @@ class AuthController extends Controller
         $user = User::whereEmail($request->email)->first();
 
         if($user){
-            $code = Str::random(4);
+            $code = random_int(1000, 9999);;
             VerificationCode::create([
                 'email' => $user->email,
                 'code' => $code,
@@ -153,7 +177,7 @@ class AuthController extends Controller
         $user = User::whereEmail($request->email)->first();
         if($verificationCode){
             $verificationCode->delete();
-            $code = Str::random(4);
+            $code = random_int(1000, 9999);;
             VerificationCode::create([
                 'email' => $request->email,
                 'code' => $code,
@@ -192,6 +216,15 @@ class AuthController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
+        $user = User::where('email', $request->email)->first();
+        if(!$user){
+            return response()->json([
+                'status' => 404,
+                "msg" => "User not Exist",
+                "data" => null,
+            ],404);
+        }
+
         $verificationCode = VerificationCode::where('email', $request->email)
             ->where('code', $request->code)
             ->with('user')
@@ -206,9 +239,7 @@ class AuthController extends Controller
         }
 
         if (!is_null($verificationCode->verify_to) && ($verificationCode->verify_to < Carbon::now())) {
-
             $verificationCode->delete();
-
             return response()->json([
                 'status' => 400,
                 "msg" => "Expired Verification Code.",
@@ -217,12 +248,16 @@ class AuthController extends Controller
         }
 
         $verificationCode->delete();
-
+        
+        $user->update([
+            'email_verified_at' => Carbon::now(),
+        ]);
+        
         return response()->json([
             'status' => 200,
             "msg" => "Verification Code Successfully!",
             "data" => [
-                'user' => $verificationCode->user,
+                'user' => $user,
             ],
         ]);
     }
