@@ -79,5 +79,3 @@ Route::group([
     Route::get('/request_payment', [ApiController::class,'request_payment'] );
     
 });
-
-// UPDATE `notification_settings` SET `title` = 'New Sponsorship Request' WHERE `notification_settings`.`id` = 1;
