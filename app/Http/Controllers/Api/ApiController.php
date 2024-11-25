@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\AddPaymentMonthlyJob;
+use App\Mail\AddUserEmail;
 use App\Models\Notification;
 use App\Models\NotificationSetting;
 use App\Models\Orphan;
@@ -575,10 +576,7 @@ class ApiController extends Controller
                 add_notification($user->id , 4);
             }
 
-            Mail::send('emails.add_user', ['password' => $password], function ($message) use ($user) {
-                $message->to($user->email);
-                $message->subject('Email Verification Code');
-            });
+            Mail::to($user->email)->send(new AddUserEmail('Welcome to Tarahum! Here is your password',$user->email,$password));
 
             return response()->json([
                 'status' => 200,

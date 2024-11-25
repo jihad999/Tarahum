@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Mail\VerificationEmail;
 use App\Models\Notification;
 use App\Models\User;
 use App\Models\UserNotificationSetting;
@@ -106,10 +107,7 @@ class AuthController extends Controller
             'verify_to' => Carbon::now()->addMinutes(15),
         ]);
 
-        Mail::send('emails.verification', ['code' => $code], function ($message) use ($user) {
-            $message->to($user->email);
-            $message->subject('Email Verification Code');
-        });
+        Mail::to($user->email)->send(new VerificationEmail('Welcome to Tarahum! Here is your verification code',$user->email,$code));
 
         add_user_notification_settings($user->id);
 
@@ -141,10 +139,7 @@ class AuthController extends Controller
                 'verify_to' => Carbon::now()->addMinutes(15),
             ]);
 
-            Mail::send('emails.verification', ['code' => $code], function ($message) use ($user) {
-                $message->to($user->email);
-                $message->subject('Email Verification Code');
-            });
+            Mail::to($user->email)->send(new VerificationEmail('Welcome to Tarahum! Here is your verification code',$user->email,$code));
 
             return response()->json([
                 'status' => 200,
@@ -193,10 +188,7 @@ class AuthController extends Controller
             'verify_to' => Carbon::now()->addMinutes(15),
         ]);
 
-        Mail::send('emails.verification', ['code' => $code], function ($message) use ($request) {
-            $message->to($request->email);
-            $message->subject('Email Verification Code');
-        });
+        Mail::to($user->email)->send(new VerificationEmail('Welcome to Tarahum! Here is your verification code',$user->email,$code));
 
         return response()->json([
             'status' => 200,
