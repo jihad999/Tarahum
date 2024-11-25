@@ -111,9 +111,7 @@ class AuthController extends Controller
             $message->subject('Email Verification Code');
         });
 
-        $this->add_user_notification_settings($user->id);
-
-        $this->add_notification($user->id , 1);
+        add_user_notification_settings($user->id);
 
         return response()->json([
             'status' => 200,
@@ -351,14 +349,17 @@ class AuthController extends Controller
                 users.id AS user_id,
                 users.name,
                 users.image,
-                notification_settings.title
+                notification_settings.title,
+                notifications.created_at
             FROM
                 user_notification_settings
             INNER JOIN notification_settings ON notification_settings.id = user_notification_settings.notification_setting_id
             INNER JOIN notifications ON notifications.notification_setting_id = notification_settings.id
             INNER JOIN users ON users.id = notifications.user_id
             WHERE
-                user_notification_settings.user_id = ? AND user_notification_settings.status = 1;
+                user_notification_settings.user_id = ? AND user_notification_settings.status = 1
+            Order By
+                notifications.created_at DESC;
         ";
         $notifications = DB::select($sql,[$user_id]);
 

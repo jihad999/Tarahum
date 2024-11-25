@@ -13,8 +13,13 @@ class Payment extends Model
     public function payment_info(){
         return $this->hasMany(PaymentDetail::class, 'payment_id', 'id');
     }
+
     public function plan(){
         return $this->belongsTo(Plan::class, 'plan_id', 'id');
+    }
+
+    public function sponser(){
+        return $this->hasOne(User::class, 'id', 'sponser_id');
     }
 
 }

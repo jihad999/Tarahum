@@ -36,7 +36,7 @@ class ApiController extends Controller
 
         $user = User::whereId($request->user_id)->first();
         if($user){
-            $notifications = $this->get_notifications($user->id);
+            $notifications = get_notifications($user->id);
 
             if($user->role_id ==1 ){
                 $sponsers = User::where('role_id',3)->where('orphan_id',null)->get();
@@ -315,13 +315,13 @@ class ApiController extends Controller
                     'status' => "Assigned",
                     'orphan_id' => $request->orphan_id??null,
                 ]);
-                $this->add_notification($sponser->id , 7);
+                add_notification($sponser->id , 7);
 
                 $orphan->update([
                     'status' => 'Sponserd',
                     'sponser_id' => $request->sponser_id??null,
                 ]);
-                $this->add_notification($orphan->guardian->id , 5);
+                add_notification($orphan->guardian->id , 5);
                 
                 return response()->json([
                     'status' => 200,
@@ -364,7 +364,7 @@ class ApiController extends Controller
         if(isset($request->status)){
             $sponsers = $sponsers->where('status',$request->status);
         }
-        $sponsers = $sponsers->get();
+        $sponsers = $sponsers->orderByDesc('created_at')->get();
 
         if($sponsers){
             return response()->json([
@@ -567,12 +567,12 @@ class ApiController extends Controller
                 'status' => $request->role_id == 3 ? "Not Assigned" : null,
             ]);
 
-            $this->add_user_notification_settings($user->id);
+            add_user_notification_settings($user->id);
 
             if($user->role_id == 3){
-                $this->add_notification($user->id , 1);
+                add_notification($user->id , 1);
             }elseif ($user->role_id == 2) {
-                $this->add_notification($user->id , 4);
+                add_notification($user->id , 4);
             }
 
             Mail::send('emails.add_user', ['password' => $password], function ($message) use ($user) {
@@ -777,6 +777,7 @@ class ApiController extends Controller
             ]);
 
             AddPaymentMonthlyJob::dispatch($payment->id);
+            add_notification($sponser->id , 1);
 
             return response()->json([
                 'status' => 200,
@@ -816,10 +817,10 @@ class ApiController extends Controller
 
                 if($payment_detail){
                     if($payment_detail->status == "Paid"){
-                        $this->add_notification($sponser->id , 2);
-                        $this->add_notification($sponser->id , 8);
+                        add_notification($sponser->id , 2);
+                        add_notification($sponser->id , 8);
                     }elseif($payment_detail->status == "Declined"){
-                        $this->add_notification($sponser->id , 3);
+                        add_notification($sponser->id , 3);
                     }
             
                     return response()->json([
@@ -1002,7 +1003,7 @@ class ApiController extends Controller
             $user = User::whereId($request->user_id)->first();
 
             if(($user->role_id == 1) && is_null($request->orphan_id)){
-                $this->add_notification($user->id , 6);
+                add_notification($user->id , 6);
             }
 
             $orphan = User::whereId($request->orphan_id)->first();
@@ -1119,10 +1120,23 @@ class ApiController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
+        $users = User::where('role_id',1)->with(['posts'])->get();
+
+        $tarahum_posts = [];
+        foreach ($users as $user) {
+            foreach ($user->posts as $post) {
+                if(is_null($post->orphan_id)){
+                    $tarahum_posts[] = $post;
+                }
+            }
+        }
+        $tarahum_posts = collect($tarahum_posts);
+
         $user = User::where('id',$request->user_id)->first();
         
         if($user){
             $posts = Post::where('user_id',$user->id)->where('orphan_id',null)->get();
+            $posts = $posts->merge($tarahum_posts);
             if($posts && count($posts)>0){
                 return response()->json([
                     'status' => 200,
@@ -1141,18 +1155,6 @@ class ApiController extends Controller
                 ],
             ]);
         }
-        
-        $users = User::where('role_id',1)->with(['posts'])->get();
-
-        $tarahum_posts = [];
-        foreach ($users as $user) {
-            foreach ($user->posts as $post) {
-                if(is_null($post->orphan_id)){
-                    $tarahum_posts[] = $post;
-                }
-            }
-        }
-        $tarahum_posts = collect($tarahum_posts);
 
         if($tarahum_posts){
             return response()->json([
@@ -1400,7 +1402,7 @@ class ApiController extends Controller
         $sponser = User::where('role_id',3)->where('id',$request->user_id)->first();
         if($sponser){
             if(!is_null($sponser->orphan_id)){
-                $this->add_notification($sponser->id,8);
+                add_notification($sponser->id,9);
                 return response()->json([
                     'status' => 200,
                     "msg" => "Sucssess request payment",
@@ -1411,7 +1413,7 @@ class ApiController extends Controller
             }
             return response()->json([
                 'status' => 400,
-                "msg" => "Not have an orphan",
+                "msg" => "No orphan assigned yet",
                 "sponser" => [
                     'sponser' => $sponser,
                 ],
@@ -1423,77 +1425,6 @@ class ApiController extends Controller
             "msg" => "Faild request payment",
             "data" => null,
         ],404);
-    }
-
-    private function add_user_notification_settings($user_id) {
-        $user = User::where('id',$user_id)->with(['notification_settings'])->first();
-        
-        if($user){
-            if(count($user->notification_settings)>0 && $user->notification_settings){
-                foreach ($user->notification_settings as $notification_setting) {
-                    UserNotificationSetting::updateOrCreate([
-                        'user_id' => $user->id,
-                        'notification_setting_id' => $notification_setting->id,
-                    ],[
-                        'user_id' => $user->id,
-                        'notification_setting_id' => $notification_setting->id,
-                        'status' => 1,
-                    ]);
-                }
-            }
-        }
-    }
-
-    private function add_notification($user_id,$notification_setting_id) {
-        $notification = Notification::create([
-            'user_id' => $user_id,
-            'notification_setting_id' => $notification_setting_id,
-        ]);
-
-        if($notification){
-            return response()->json([
-                'status' => 200,
-                'msg' => 'Add Notification Successfully',
-                'data' => [
-                    'user_notification' => $user_notification->notification_settings??null,
-                ],
-            ]);
-        }
-
-        return response()->json([
-            'status' => 404,
-            'msg' => 'Add Notification Faild',
-            'data' => null,
-        ],404);
-        
-    }
-    
-    private function get_notifications($user_id) {
-        $user = User::whereId($user_id)->first();
-        
-        $sql = "
-            SELECT
-                user_notification_settings.id,
-                users.id AS user_id,
-                users.name,
-                users.image,
-                notification_settings.title
-            FROM
-                user_notification_settings
-            INNER JOIN notification_settings ON notification_settings.id = user_notification_settings.notification_setting_id
-            INNER JOIN notifications ON notifications.notification_setting_id = notification_settings.id
-            INNER JOIN users ON users.id = notifications.user_id
-            WHERE
-                user_notification_settings.user_id = ? AND user_notification_settings.status= 1 AND notifications.created_at >= users.created_at
-        ";
-        if($user->role_id != 1){
-            $sql .= " AND notifications.user_id = $user_id ";
-        }
-        $notifications = DB::select($sql,[$user_id]);
-        if($notifications){
-            return $notifications;
-        }
-        return ;
     }
 
 }

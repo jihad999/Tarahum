@@ -24,15 +24,17 @@ class AddPaymentMonthlyJob implements ShouldQueue
 
     public function handle()
     {
-        $payment = Payment::whereId($this->payment_id)->first();
-        $plan = Plan::whereId($payment->plan_id)->first();
-        if($payment->statis == 1){
-            $payment_info = PaymentDetail::updateOrCreate([
-                'payment_id' => $payment->id,
-            ],[
-                'payment_id' => $payment->id,
-                'price' => $plan->price,
-            ]);
+        $payment = Payment::whereId($this->payment_id)->with('sponser')->first();
+        // $plan = Plan::whereId($payment->plan_id)->first();
+        $sponser = $payment->sponser??null;
+        if($sponser && $payment->statis == 1){
+            add_notification($sponser->id,9);
+            // $payment_info = PaymentDetail::updateOrCreate([
+            //     'payment_id' => $payment->id,
+            // ],[
+            //     'payment_id' => $payment->id,
+            //     'price' => $plan->price,
+            // ]);
     
             AddPaymentMonthlyJob::dispatch($payment->id)->delay(now()->addDays($payment->duration_day));
         }
