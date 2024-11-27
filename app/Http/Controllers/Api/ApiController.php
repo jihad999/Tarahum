@@ -40,7 +40,7 @@ class ApiController extends Controller
             $notifications = get_notifications($user->id);
 
             if($user->role_id ==1 ){
-                $sponsers = User::where('role_id',3)->where('orphan_id',null)->get();
+                $sponsers = User::where('role_id',3)->where('orphan_id',null)->orderByDesc('created_at')->get();
                 return response()->json([
                     'status' => 200,
                     "msg" => "Home",
@@ -767,9 +767,7 @@ class ApiController extends Controller
                 'status' => 1,
             ]);
 
-            $payment_info = PaymentDetail::updateOrCreate([
-                'payment_id' => $payment->id,
-            ],[
+            $payment_info = PaymentDetail::create([
                 'payment_id' => $payment->id,
                 'price' => $plan->price,
             ]);

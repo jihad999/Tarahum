@@ -1,5 +1,9 @@
 Email: {{$email??null}} <br>
-You just signed up as a sponsor in Tarahum app.  <br>
+@if($user->role_id == 3)
+    You just signed up as a Sponsor in Tarahum app.  <br>
+@elseif ($user->role_id == 2)
+    You just signed up as a Guardian in Tarahum app.  <br>
+@endif
 Here is your verification code/OTP: <br>
 {{$code??null}}
 <br><br>

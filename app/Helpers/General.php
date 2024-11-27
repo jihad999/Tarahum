@@ -77,30 +77,47 @@ function get_notifications($user_id) {
     $sql = "
         SELECT
             notifications.id,
+            notification_settings.id AS notification_setting_id,
+            notification_settings.title AS notification_setting_title,
             users.id AS user_id,
-            users.name,
-            users.image,
-            notification_settings.title,
-            notifications.created_at
+            users.name AS use_name,
+            users.image AS user_image,
+            notifications.created_at,
+            orphans.first_name AS orphan_first_name,
+            orphans.last_name AS orphan_last_name,
+            guardians.name AS guardian_name,
+            sponsers.name AS sponser_name
+            
         FROM
             user_notification_settings
         INNER JOIN notification_settings ON notification_settings.id = user_notification_settings.notification_setting_id
         INNER JOIN notifications ON notifications.notification_setting_id = notification_settings.id
         INNER JOIN users ON users.id = notifications.user_id
+        LEFT JOIN orphans ON orphans.id = users.orphan_id
+        LEFT JOIN users AS guardians ON guardians.id = orphans.guardian_id
+        LEFT JOIN users AS sponsers ON sponsers.id = orphans.sponser_id
         WHERE
-            user_notification_settings.user_id = ? AND user_notification_settings.status = 1 AND notifications.created_at >= users.created_at $sql_user_not_tarahum
+            user_notification_settings.user_id = ? AND user_notification_settings.status = 1 $sql_user_not_tarahum
         UNION
         SELECT
             notifications.id,
+            notification_settings.id AS notification_setting_id,
+            notification_settings.title AS notification_setting_title,
             users.id AS user_id,
-            users.name,
-            users.image,
-            notification_settings.title,
-            notifications.created_at
+            users.name AS use_name,
+            users.image AS user_image,
+            notifications.created_at,
+            orphans.first_name AS orphan_first_name,
+            orphans.last_name AS orphan_last_name,
+            guardians.name AS guardian_name,
+            sponsers.name AS sponser_name
         FROM
             notification_settings
         INNER JOIN notifications ON notifications.notification_setting_id = notification_settings.id AND notifications.user_id = ?
         INNER JOIN users ON users.id = notifications.user_id
+        LEFT JOIN orphans ON orphans.id = users.orphan_id
+        LEFT JOIN users AS guardians ON guardians.id = orphans.guardian_id
+        LEFT JOIN users AS sponsers ON sponsers.id = orphans.sponser_id
         WHERE
             notifications.created_at >= users.created_at AND notification_settings.role_id IS NULL $sql_user_not_tarahum
         ORDER BY
@@ -108,7 +125,7 @@ function get_notifications($user_id) {
         DESC
             ;
     ";
-    
+
     $notifications = DB::select($sql,[$user_id , $user_id]);
     if($notifications){
         return $notifications;

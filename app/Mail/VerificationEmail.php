@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
@@ -40,12 +41,14 @@ class VerificationEmail extends Mailable
      */
     public function content(): Content
     {
+        $user = User::whereEmail($this->email)->first();
         return new Content(
             view: 'emails.verification',
             with: [
                 'subject' => $this->subject,
                 'email' => $this->email,
                 'code' => $this->code,
+                'user' => $user,
             ]
         );
     }

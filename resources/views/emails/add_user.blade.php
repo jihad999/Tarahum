@@ -1,5 +1,9 @@
 Email: {{$email??null}} <br>
-You just signed up as an orphan guardian in Tarahum app. <br>
+@if($user->role_id == 3)
+    You just signed up as an orphan sponsor in Tarahum app. <br>
+    @elseif ($user->role_id == 2)
+    You just signed up as an orphan guardian in Tarahum app. <br>
+@endif
 Here is your password: <br>
 {{$password??null}}
 <br><br>
